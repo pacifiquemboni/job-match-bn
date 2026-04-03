@@ -90,16 +90,19 @@ export const setupSocketHandlers = (io: Server) => {
         );
 
         logger.info(`Message saved with id ${message.id}`);
-        
+
         // Broadcast to all users in the room
         io.to(`application:${data.applicationId}`).emit('new-message', message);
-        // Notify the recipient's user room so they can update their unread count
-        io.to(`application:${data.applicationId}`).emit('newMessage', message);
         logger.info(`Message broadcast to application:${data.applicationId}`);
       } catch (error) {
         logger.error('Error sending message:', error);
         socket.emit('error', error instanceof Error ? error.message : 'Failed to send message');
       }
+    });
+
+    socket.on('leave-room', (applicationId: string) => {
+      socket.leave(`application:${applicationId}`);
+      logger.info(`User ${socket.userId} left room application:${applicationId}`);
     });
 
     socket.on('disconnect', () => {

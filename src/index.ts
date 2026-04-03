@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3010;
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.NODE_ENV === 'production' ? 'https://yourdomain.com' : '*',
+    origin: process.env.CORS_ORIGIN || '*',
     credentials: true,
   },
 });

@@ -20,7 +20,7 @@ async function main() {
   // Create test users
   const hashedPassword = await bcrypt.hash('password123', 10);
 
-  const workerEmail = 'worker@example.com';
+  const workerEmail = 'worker1@example.com';
   const clientEmail = 'client@example.com';
 
   const worker = await prisma.user.upsert({
@@ -67,76 +67,54 @@ async function main() {
     },
   });
 
-  // Create jobs
-  const job1Title = 'Build a REST API';
-  const job2Title = 'Frontend Development';
-
-  const existingJob1 = await prisma.job.findFirst({
-    where: { clientId: client.id, title: job1Title },
-  });
-  const existingJob2 = await prisma.job.findFirst({
-    where: { clientId: client.id, title: job2Title },
-  });
-
-  const job1 = existingJob1
-    ? await prisma.job.update({
-        where: { id: existingJob1.id },
-        data: {
-          description: 'Need an experienced developer to build a REST API with Node.js',
-          budget: 5000,
-          status: JobStatus.OPEN,
-        },
-      })
-    : await prisma.job.create({
-        data: {
-          title: job1Title,
-          description: 'Need an experienced developer to build a REST API with Node.js',
-          budget: 5000,
-          clientId: client.id,
-          status: JobStatus.OPEN,
-        },
+  // Create 110 numbered jobs
+  const seededJobs = await Promise.all(
+    Array.from({ length: 110 }, async (_, index) => {
+      const jobNumber = index + 1;
+      const title = `Job Title ${jobNumber}`;
+      const existingJob = await prisma.job.findFirst({
+        where: { clientId: client.id, title },
       });
 
-  const job2 = existingJob2
-    ? await prisma.job.update({
-        where: { id: existingJob2.id },
-        data: {
-          description: 'Looking for React expert to build a dashboard',
-          budget: 3000,
-          status: JobStatus.OPEN,
-        },
-      })
-    : await prisma.job.create({
-        data: {
-          title: job2Title,
-          description: 'Looking for React expert to build a dashboard',
-          budget: 3000,
-          clientId: client.id,
-          status: JobStatus.OPEN,
-        },
+      const job = existingJob
+        ? await prisma.job.update({
+            where: { id: existingJob.id },
+            data: {
+              description: `Seeded job description for job ${jobNumber}`,
+              budget: 1000 + jobNumber * 100,
+              status: JobStatus.OPEN,
+            },
+          })
+        : await prisma.job.create({
+            data: {
+              title,
+              description: `Seeded job description for job ${jobNumber}`,
+              budget: 1000 + jobNumber * 100,
+              clientId: client.id,
+              status: JobStatus.OPEN,
+            },
+          });
+
+      await prisma.jobTag.deleteMany({
+        where: { jobId: job.id },
       });
 
-  await prisma.jobTag.createMany({
-    data: ['Node.js', 'TypeScript', 'API'].map((tag) => ({
-      jobId: job1.id,
-      tag,
-    })),
-    skipDuplicates: true,
-  });
+      await prisma.jobTag.createMany({
+        data: ['Remote', 'Full-time', `Category-${(jobNumber % 5) + 1}`].map((tag) => ({
+          jobId: job.id,
+          tag,
+        })),
+      });
 
-  await prisma.jobTag.createMany({
-    data: ['React', 'JavaScript', 'CSS'].map((tag) => ({
-      jobId: job2.id,
-      tag,
-    })),
-    skipDuplicates: true,
-  });
+      return job;
+    })
+  );
 
   // Create (or reset) application
   await prisma.application.upsert({
     where: {
       jobId_workerId: {
-        jobId: job1.id,
+        jobId: seededJobs[0].id,
         workerId: worker.id,
       },
     },
@@ -144,7 +122,7 @@ async function main() {
       status: ApplicationStatus.PENDING,
     },
     create: {
-      jobId: job1.id,
+      jobId: seededJobs[0].id,
       workerId: worker.id,
       status: ApplicationStatus.PENDING,
     },
