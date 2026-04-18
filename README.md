@@ -75,6 +75,167 @@ job-matching-bn/
 
 ---
 
+## Database Schema
+
+### ER Diagram
+
+```mermaid
+erDiagram
+    User {
+        uuid   id        PK
+        string email     UK
+        string password
+        enum   role      "WORKER | CLIENT"
+        datetime createdAt
+        datetime updatedAt
+    }
+    WorkerProfile {
+        uuid     id        PK
+        uuid     userId    FK
+        string[] skills
+        string   bio
+        datetime createdAt
+        datetime updatedAt
+    }
+    Job {
+        uuid   id          PK
+        uuid   clientId    FK
+        string title
+        string description
+        float  budget
+        enum   status      "OPEN | IN_PROGRESS | COMPLETED"
+        datetime createdAt
+        datetime updatedAt
+    }
+    JobTag {
+        uuid   id     PK
+        uuid   jobId  FK
+        string tag
+        datetime createdAt
+    }
+    Application {
+        uuid id        PK
+        uuid jobId     FK
+        uuid workerId  FK
+        enum status    "PENDING | MATCHED | IN_PROGRESS | COMPLETED | REJECTED"
+        datetime createdAt
+        datetime updatedAt
+    }
+    Message {
+        uuid    id            PK
+        uuid    applicationId FK
+        uuid    senderId      FK
+        string  content
+        boolean read
+        datetime createdAt
+    }
+    Notification {
+        uuid    id        PK
+        uuid    userId    FK
+        string  type
+        string  title
+        string  message
+        json    data
+        boolean read
+        datetime createdAt
+    }
+
+    User         ||--o|  WorkerProfile : "has profile"
+    User         ||--o{  Job           : "posts (as CLIENT)"
+    User         ||--o{  Application   : "submits (as WORKER)"
+    User         ||--o{  Message       : "sends"
+    User         ||--o{  Notification  : "receives"
+    Job          ||--o{  JobTag        : "tagged with"
+    Job          ||--o{  Application   : "receives"
+    Application  ||--o{  Message       : "contains"
+```
+
+### Table Structure
+
+#### `User`
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | `UUID` | PK, default `uuid()` | |
+| `email` | `String` | Unique, indexed | |
+| `password` | `String` | | bcrypt hash |
+| `role` | `UserRole` | | `WORKER` or `CLIENT` |
+| `createdAt` | `DateTime` | default `now()` | |
+| `updatedAt` | `DateTime` | auto-updated | |
+
+#### `WorkerProfile`
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | `UUID` | PK | |
+| `userId` | `UUID` | FK → `User.id`, Unique | Cascade delete |
+| `skills` | `String[]` | | Array of skill tags |
+| `bio` | `String?` | Nullable | |
+| `createdAt` | `DateTime` | | |
+| `updatedAt` | `DateTime` | auto-updated | |
+
+#### `Job`
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | `UUID` | PK | |
+| `clientId` | `UUID` | FK → `User.id`, indexed | Must have `CLIENT` role |
+| `title` | `String` | | |
+| `description` | `String` | | |
+| `budget` | `Float` | | |
+| `status` | `JobStatus` | default `OPEN`, indexed | `OPEN` → `IN_PROGRESS` → `COMPLETED` |
+| `createdAt` | `DateTime` | indexed | |
+| `updatedAt` | `DateTime` | auto-updated | |
+
+#### `JobTag`
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | `UUID` | PK | |
+| `jobId` | `UUID` | FK → `Job.id`, indexed | Cascade delete |
+| `tag` | `String` | indexed | |
+| `createdAt` | `DateTime` | | |
+> Unique constraint on `(jobId, tag)` — no duplicate tags per job.
+
+#### `Application`
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | `UUID` | PK | |
+| `jobId` | `UUID` | FK → `Job.id`, indexed | |
+| `workerId` | `UUID` | FK → `User.id`, indexed | Must have `WORKER` role |
+| `status` | `ApplicationStatus` | default `PENDING`, indexed | |
+| `createdAt` | `DateTime` | | |
+| `updatedAt` | `DateTime` | auto-updated | |
+> Unique constraint on `(jobId, workerId)` — one application per worker per job.
+
+#### `Message`
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | `UUID` | PK | |
+| `applicationId` | `UUID` | FK → `Application.id`, indexed | Cascade delete |
+| `senderId` | `UUID` | FK → `User.id` | |
+| `content` | `String` | | |
+| `read` | `Boolean` | default `false`, indexed | |
+| `createdAt` | `DateTime` | indexed | |
+
+#### `Notification`
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | `UUID` | PK | |
+| `userId` | `UUID` | FK → `User.id`, indexed | Cascade delete |
+| `type` | `String` | | e.g. `APPLICATION_RECEIVED` |
+| `title` | `String` | | |
+| `message` | `String` | | |
+| `data` | `Json?` | Nullable | Arbitrary context payload |
+| `read` | `Boolean` | default `false`, indexed | |
+| `createdAt` | `DateTime` | indexed | |
+
+### Enums
+
+| Enum | Values |
+|---|---|
+| `UserRole` | `WORKER`, `CLIENT` |
+| `JobStatus` | `OPEN`, `IN_PROGRESS`, `COMPLETED` |
+| `ApplicationStatus` | `PENDING`, `MATCHED`, `IN_PROGRESS`, `COMPLETED`, `REJECTED` |
+
+---
+
 ## API Reference
 
 All routes are prefixed with `/api`.
