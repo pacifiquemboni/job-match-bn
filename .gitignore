@@ -6,9 +6,6 @@ dist/
 build/
 
 # Environment variables
-.env
-.env.local
-.env.production
 
 # Logs
 logs/
@@ -23,8 +20,11 @@ prisma/migrations/**/migration.sql
 Thumbs.db
 
 # IDE
-.vscode/
 .idea/
 
 # TypeScript
 *.tsbuildinfo
+config.bat
+temp_auto_push.bat
+temp_interactive_push.bat
+.gitignore
